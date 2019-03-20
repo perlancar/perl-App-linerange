@@ -96,6 +96,7 @@ sub linerange {
     my @ranges;
     my @buffer;
     my $bufsize = 0;
+    my $exit_after_line = 0;
     for my $spec2 (split /\s*,\s*/, $args{spec}) {
         $spec2 =~ /\A\s*([+-]?[0-9]+)\s*(?:(?:\.\.|-)\s*([+-]?[0-9]+)\s*)?\z/
             or return [400, "Invalid line number/range specification '$spec2'"];
@@ -106,11 +107,17 @@ sub linerange {
                         "range specification '$spec2'"];
         } elsif ($ln1 > 0 && $ln2 > 0) {
             push @ranges, $ln1 > $ln2 ? [$ln2, $ln1] : [$ln1, $ln2];
+            unless ($exit_after_line < 0) {
+                $exit_after_line = $ln1 if $exit_after_line < $ln1;
+                $exit_after_line = $ln2 if $exit_after_line < $ln2;
+            }
         } elsif ($ln1 < 0 && $ln2 < 0) {
             $bufsize = -$ln1 if $bufsize < -$ln1;
             $bufsize = -$ln2 if $bufsize < -$ln2;
             push @ranges, $ln1 > $ln2 ? [$ln1, $ln2] : [$ln2, $ln1];
+            $exit_after_line = -1;
         } else {
+            $exit_after_line = -1;
             if ($ln1 > 0) {
                 $bufsize = -$ln2 if $bufsize < -$ln2;
                 push @ranges, [$ln1, $ln2];
@@ -125,6 +132,7 @@ sub linerange {
     my $linenum = 0;
     while (defined(my $line = <$fh>)) {
         $linenum++;
+        last if $exit_after_line >= 0 && $linenum > $exit_after_line;
         if ($bufsize) {
             push @buffer, $line;
             if (@buffer > $bufsize) { shift @buffer }
