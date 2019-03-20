@@ -94,6 +94,7 @@ B<linerange> offers you a dead-simple alternative:
 
  % linerange 5-12 FILE
  % linerange 5..12 FILE
+ % linerange 5+7 FILE   ;# equivalent to 5..(5+7) = 5..12
 
 as well as some features like allowing single line numbers:
 
