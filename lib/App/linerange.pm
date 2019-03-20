@@ -34,14 +34,19 @@ _
             description => <<'_',
 
 A comma-separated list of line numbers ("N") or line ranges ("N1..N2" or
-"N1-N2"), where N, N1, and N2 are line number specification. Line number begins
-at 1; it can also be a negative integer (-1 means the last line, -2 means second
-last, and so on). N1..N2 is the same as N2..N1.
+"N1-N2", or "N1+M" which means N2 is N1+M-1 if N1 is positive or N1-M-1 if N1 is
+negative), where N, N1, and N2 are line number specification and M is a
+non-negative number. Line number begins at 1; it can also be a negative integer
+(-1 means the last line, -2 means second last, and so on). N1..N2 is the same as
+N2..N1.
 
 Examples:
 
 * 3 (third line)
 * 1..5 (first to fifth line)
+* 3+0 (third line)
+* 3+1 (third to fourth line)
+* -3+1 (third last to fourth last)
 * 5..1 (first to fifth line)
 * -5..-1 (fifth last to last line)
 * -1..-5 (fifth last to last line)
@@ -98,10 +103,17 @@ sub linerange {
     my $bufsize = 0;
     my $exit_after_line = 0;
     for my $spec2 (split /\s*,\s*/, $args{spec}) {
-        $spec2 =~ /\A\s*([+-]?[0-9]+)\s*(?:(?:\.\.|-)\s*([+-]?[0-9]+)\s*)?\z/
+        $spec2 =~ /\A\s*([+-]?[0-9]+)\s*(?:(\.\.|-|\+)\s*([+-]?[0-9]+)\s*)?\z/
             or return [400, "Invalid line number/range specification '$spec2'"];
+
         my $ln1 = $1;
-        my $ln2 = $2 // $1;
+        my $ln2 = $3 // $1;
+        if (defined $2 && $2 eq '+') {
+            return [400, "Invalid line range specification '$spec2'"]
+                unless $ln2 >= 0;
+            $ln2 = $ln1 + ($ln1 < 0 ? -1:1) * $ln2;
+        }
+
         if ($ln1 == 0 || $ln2 == 0) {
             return [400, "Invalid line number 0 in ".
                         "range specification '$spec2'"];
