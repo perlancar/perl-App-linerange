@@ -91,7 +91,7 @@ calculate 12-5+1. You can use B<sed> or B<awk> or B<perl>:
  % perl -ne'print if $. >= 5 && $. <= 12' FILE
 
 which is fine only if you are familiar with those programming languages. And
-they require you to type too many symbols.
+they require you to type too many symbol characters.
 
 B<linerange> offers you a dead-simple alternative:
 
