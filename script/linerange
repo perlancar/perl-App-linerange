@@ -56,7 +56,7 @@ parse_cmdline();
 run();
 
 1;
-# ABSTRACT: Retrieve line ranges from a filehandle
+# ABSTRACT: Retrieve line ranges from text
 # PODNAME:
 
 =head1 SYNOPSIS
@@ -68,8 +68,11 @@ Examples:
  # get line 25 from FILE
  % linerange 15 < FILE
 
- # get second to second last lines from process output
- % some-process | linerange 2..-2
+ # get lines from 2nd to last (a.k.a. everything but the first) from process output
+ % some-process | linerange 2..-1
+
+ # get some lines from ls output
+ % ls | linerange 1,2-10,20
 
 
 =head1 DESCRIPTION
