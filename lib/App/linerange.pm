@@ -34,10 +34,10 @@ _
             description => <<'_',
 
 A comma-separated list of line numbers ("N") or line ranges ("N1..N2" or
-"N1-N2", or "N1+M" which means N2 is set to N1+M-1), where N, N1, and N2 are
-line number specification. Line number begins at 1; it can also be a negative
-integer (-1 means the last line, -2 means second last, and so on). N1..N2 is the
-same as N2..N1.
+"N1-N2", or "N1+M" which means N2 is set to N1+M), where N, N1, and N2 are line
+number specification. Line number begins at 1; it can also be a negative integer
+(-1 means the last line, -2 means second last, and so on). N1..N2 is the same as
+N2..N1.
 
 Examples:
 
@@ -45,7 +45,7 @@ Examples:
 * 1..5 (first to fifth line)
 * 3+0 (third line)
 * 3+1 (third to fourth line)
-* -3+1 (third last to fourth last)
+* -3+1 (third last to second last)
 * 5..1 (first to fifth line)
 * -5..-1 (fifth last to last line)
 * -1..-5 (fifth last to last line)
@@ -86,6 +86,24 @@ _
         {
             summary => 'You can specify negative number, get the 10th last until last',
             args => {spec=>'-10 .. -1'},
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+        {
+            summary => 'Instead of N1-N2, you can use N1+M to mean N1-(N1+M), get 3rd line',
+            args => {spec=>'3+0'},
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+        {
+            summary => 'Instead of N1-N2, you can use N1+M to mean N1-(N1+M), get 3rd to 5th line',
+            args => {spec=>'3+2'},
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+        {
+            summary => 'Instead of N1-N2, you can use N1+M to mean N1-(N1+M), get 3rd last to last line',
+            args => {spec=>'-3+2'},
             test => 0,
             'x.doc.show_result' => 0,
         },
