@@ -33,11 +33,13 @@ _
             summary => 'Line range specification',
             description => <<'_',
 
-A comma-separated list of line numbers ("N") or line ranges ("N1..N2" or
-"N1-N2", or "N1+M" which means N2 is set to N1+M), where N, N1, and N2 are line
-number specification. Line number begins at 1; it can also be a negative integer
-(-1 means the last line, -2 means second last, and so on). N1..N2 is the same as
-N2..N1.
+A comma-separated list of empty strings ("", which means all lines), specific
+line numbers ("N") or line ranges ("N1..N2" or "N1-N2", or "N1+M" which means N2
+is set to N1+M), where N, N1, and N2 are line number specification. Line number
+begins at 1; it can also be a negative integer (-1 means the last line, -2 means
+second last, and so on). N1..N2 is the same as N2..N1. Each line or range can
+optionally be followed by "/M" to mean every M'th line (where M is an integer
+starting from 1).
 
 Examples:
 
@@ -51,14 +53,29 @@ Examples:
 * -1..-5 (fifth last to last line)
 * 5..-3 (fifth line to third last)
 * -3..5 (fifth line to third last)
+* /3 (every 3rd line, i.e. 3, 6, 9, ...)
+* /2 (every other line, i.e. 2, 4, 6, ...)
+* 2..-1/3 (every 3rd line starting from line 2, i.e. 4, 7, 10, ...)
 
 _
-            schema => 'str*',
-            req => 1,
+            schema => 'str',
+            default => '',
             pos => 0,
         },
     },
     examples => [
+        {
+            summary => 'By default, if spec is empty, get all lines',
+            args => {},
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+        {
+            summary => 'Get every other lines',
+            args => {spec=>'/2'},
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
         {
             summary => 'Get lines 1-10',
             args => {spec=>'1-10'},
@@ -120,26 +137,54 @@ sub linerange {
     my $bufsize = 0;
     my $exit_after_linum = 0; # set this to a positive line number if we can optimize
 
-    for my $spec2 (split /\s*,\s*/, $args{spec}) {
-        $spec2 =~ /\A\s*([+-]?[0-9]+)\s*(?:(\.\.|-|\+)\s*([+-]?[0-9]+)\s*)?\z/
+    my @simple_specs = split /\s*,\s*/, $args{spec};
+    @simple_specs = ('') unless @simple_specs;
+
+    for my $spec2 (@simple_specs) {
+        $spec2 =~ m!\A\s*
+                   (?:
+                       ([+-]?[0-9]+)        # 1) start
+                       \s*
+                       (?:
+                           (\.\.|-|\+)\s*   # 2) range 'operator'
+                           ([+-]?[0-9]+)\s* # 3) end
+                       )?
+                   )?
+                   (?:
+                       /\s*
+                       ([0-9]+)             # 4) every
+                   )?
+                   \z!x
             or return [400, "Invalid line number/range specification '$spec2'"];
 
-        my $ln1 = $1;
-        my $ln2 = $3 // $1;
-        if (defined $2 && $2 eq '+') {
-            $ln2 = $ln1 + $ln2;
-            if ($ln1 > 0) {
-                $ln2 = 1 if $ln2 < 1;
-            } else {
-                $ln2 = -1 if $ln2 > -1;
+        my ($ln1, $ln2, $every);
+        if (!defined $1 && !defined $2) {
+            $ln1 = 1;
+            $ln2 = -1;
+        } else {
+            $ln1 = $1;
+            $ln2 = $3 // $1;
+            if (defined $2 && $2 eq '+') {
+                $ln2 = $ln1 + $ln2;
+                if ($ln1 > 0) {
+                    $ln2 = 1 if $ln2 < 1;
+                } else {
+                    $ln2 = -1 if $ln2 > -1;
+                }
             }
+        }
+        $every = $4 // 1;
+        if ($every == 0) {
+            return [400, "Invalid 0 in every in range specification '$spec2', ".
+                        "start from 1"];
         }
 
         if ($ln1 == 0 || $ln2 == 0) {
             return [400, "Invalid line number 0 in ".
-                        "range specification '$spec2'"];
+                        "range specification '$spec2', start from 1"];
         } elsif ($ln1 > 0 && $ln2 > 0) {
-            push @ranges, $ln1 > $ln2 ? [$ln2, $ln1] : [$ln1, $ln2];
+            push @ranges, $ln1 > $ln2 ?
+                [$ln2, $ln1, $every] : [$ln1, $ln2, $every];
             unless ($exit_after_linum < 0) {
                 $exit_after_linum = $ln1 if $exit_after_linum < $ln1;
                 $exit_after_linum = $ln2 if $exit_after_linum < $ln2;
@@ -147,16 +192,17 @@ sub linerange {
         } elsif ($ln1 < 0 && $ln2 < 0) {
             $bufsize = -$ln1 if $bufsize < -$ln1;
             $bufsize = -$ln2 if $bufsize < -$ln2;
-            push @ranges, $ln1 > $ln2 ? [$ln1, $ln2] : [$ln2, $ln1];
+            push @ranges, $ln1 > $ln2 ?
+                [$ln1, $ln2, $every] : [$ln2, $ln1, $every];
             $exit_after_linum = -1;
         } else {
             $exit_after_linum = -1;
             if ($ln1 > 0) {
                 $bufsize = -$ln2 if $bufsize < -$ln2;
-                push @ranges, [$ln1, $ln2];
+                push @ranges, [$ln1, $ln2, $every];
             } else {
                 $bufsize = -$ln1 if $bufsize < -$ln1;
-                push @ranges, [$ln2, $ln1];
+                push @ranges, [$ln2, $ln1, $every];
             }
         }
     }
@@ -171,10 +217,14 @@ sub linerange {
             if (@buffer > $bufsize) { shift @buffer }
         }
         for my $range (@ranges) {
+            # check if line is included by range (N1-N2)
             next unless
                 $range->[0] > 0 && $linenum >= $range->[0] &&
                 ($range->[1] < 0 ||
                  $range->[1] > 0 && $linenum <= $range->[1]);
+            # check if line is included by every (N3)
+            say "D:linenum=$linenum, range=".join(",",@$range).", ".($linenum-1 - $range->[0]+1)." % $range->[2] == ".(($linenum-1 + $range->[0]-1) % $range->[2]);
+            next unless $range->[0] > 0 && (($linenum-1 - $range->[0]+1) % $range->[2] == $range->[2]-1);
             $reslines{$linenum} = $line;
         }
     }
@@ -198,6 +248,9 @@ sub linerange {
                 }
             } else {
                 for my $offset ($bufpos1 .. $bufpos2) {
+                    # check with every again
+                    next unless ($offset % $range->[2] == $range->[2]-1);
+                    #say "D:adding result line in buffer: offset=$offset, linenum=".($bufstartline + $offset);
                     $reslines{ $bufstartline + $offset } = $buffer[$offset];
                 }
             }

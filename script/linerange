@@ -21,7 +21,7 @@ sub parse_cmdline {
         'help|h'           => sub {
             print <<USAGE;
 Usage:
-  linerange [OPTIONS]... <RANGESPEC> [FILE]...
+  linerange [OPTIONS]... [RANGESPEC] [FILE]...
   linerange --version (or -v)
   linerange --help (or -h)
 Options:
@@ -34,8 +34,7 @@ USAGE
     if (@ARGV) {
         $Opts{spec} = shift @ARGV;
     } else {
-        die "linerange: Please specify range specification ".
-            "(e.g. 10-15 or -5..-1)\n";
+        $Opts{spec} = '';
     }
     exit 99 if !$res;
 }
@@ -66,7 +65,7 @@ run();
 Examples:
 
  # get line 25 from FILE
- % linerange 15 < FILE
+ % linerange 25 < FILE
 
  # get lines from 2nd to last (a.k.a. everything but the first) from process output
  % some-process | linerange 2..-1
@@ -107,11 +106,16 @@ multiple line ranges:
 
  % linerange 5-12,20,25-32 FILE
 
-as well as negative line numbers:
+negative line numbers:
 
  % linerange 5..-1 FILE
  % linerange -5..-1 FILE
  % linerange 5..-3 FILE
+
+and a syntax to only get every n'th line:
+
+ % linerange /2 FILE      # every 2nd line, i.e. line 2, 4, 6, ...
+ % linerange 2..-1/3 FILE # every 3rd line in the range, i.e. line 4, 7, 10, ...
 
 You can use C<..> or C<-> (they both work), you don't have to worry about
 getting the lower range and higher range mixed up (they both work), you don't
