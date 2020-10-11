@@ -223,7 +223,7 @@ sub linerange {
                 ($range->[1] < 0 ||
                  $range->[1] > 0 && $linenum <= $range->[1]);
             # check if line is included by every (N3)
-            say "D:linenum=$linenum, range=".join(",",@$range).", ".($linenum-1 - $range->[0]+1)." % $range->[2] == ".(($linenum-1 + $range->[0]-1) % $range->[2]);
+            #say "D:linenum=$linenum, range=".join(",",@$range).", ".($linenum-1 - $range->[0]+1)." % $range->[2] == ".(($linenum-1 + $range->[0]-1) % $range->[2]);
             next unless $range->[0] > 0 && (($linenum-1 - $range->[0]+1) % $range->[2] == $range->[2]-1);
             $reslines{$linenum} = $line;
         }
